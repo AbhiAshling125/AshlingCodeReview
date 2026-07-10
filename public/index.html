@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>UiPath Code Reviewer Enterprise</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topnav">
+    <div class="brand">
+      <span class="brand-name">UiPath Code Reviewer</span>
+      <span class="brand-tag">Enterprise</span>
+    </div>
+    <div class="status-badge" id="status-badge">
+      <span class="status-dot" id="status-dot"></span>
+      <span id="status-text">Checking Ollama…</span>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="panel">
+      <h1>Review a UiPath Workflow</h1>
+      <p class="subtitle">Paste the contents of a .xaml file below. Reviews run entirely on your machine via a local Ollama model — nothing leaves your network.</p>
+
+      <label for="filename">File name</label>
+      <input id="filename" type="text" placeholder="e.g. Main.xaml" value="Main.xaml" />
+
+      <label for="xaml-input">XAML content</label>
+      <textarea id="xaml-input" rows="16" placeholder="Paste your UiPath XAML here..."></textarea>
+
+      <button id="review-btn">Run Review</button>
+      <div id="error-box" class="error-box" hidden></div>
+    </section>
+
+    <section class="panel" id="results-panel" hidden>
+      <h2>Review Results</h2>
+      <div class="score-summary">
+        <div class="score-circle" id="overall-score">–</div>
+        <p id="summary-text"></p>
+      </div>
+
+      <h3>Category Scores</h3>
+      <div id="categories" class="categories"></div>
+
+      <h3>Findings</h3>
+      <div id="findings" class="findings"></div>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>
