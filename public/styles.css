@@ -1,0 +1,235 @@
+:root {
+  color-scheme: light dark;
+  --bg: #0f172a;
+  --panel: #1e293b;
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+  --accent: #38bdf8;
+  --border: #334155;
+  --high: #f87171;
+  --medium: #fbbf24;
+  --low: #4ade80;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.topnav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.brand-name {
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.brand-tag {
+  margin-left: 8px;
+  font-size: 0.75rem;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.status-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.status-dot.online {
+  background: var(--low);
+  box-shadow: 0 0 6px var(--low);
+}
+
+.status-dot.offline {
+  background: var(--high);
+  box-shadow: 0 0 6px var(--high);
+}
+
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.subtitle {
+  color: var(--muted);
+  margin-top: -8px;
+}
+
+label {
+  display: block;
+  margin-top: 16px;
+  margin-bottom: 6px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+input, textarea {
+  width: 100%;
+  background: #0f172a;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  resize: vertical;
+}
+
+textarea {
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+}
+
+button {
+  margin-top: 18px;
+  background: var(--accent);
+  color: #0f172a;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.error-box {
+  margin-top: 14px;
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid var(--high);
+  color: var(--high);
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 0.85rem;
+}
+
+.score-summary {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.score-circle {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 3px solid var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.categories {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.category-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.category-card .cat-name {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.category-card .cat-score {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.category-card .cat-comments {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin-top: 6px;
+}
+
+.findings {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.finding-card {
+  border-left: 4px solid var(--muted);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+.finding-card.high { border-left-color: var(--high); }
+.finding-card.medium { border-left-color: var(--medium); }
+.finding-card.low { border-left-color: var(--low); }
+
+.finding-title {
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.severity-tag {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.severity-tag.high { background: rgba(248, 113, 113, 0.15); color: var(--high); }
+.severity-tag.medium { background: rgba(251, 191, 36, 0.15); color: var(--medium); }
+.severity-tag.low { background: rgba(74, 222, 128, 0.15); color: var(--low); }
+
+.finding-desc, .finding-rec {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+.finding-rec strong {
+  color: var(--text);
+}
