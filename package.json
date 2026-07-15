@@ -1,0 +1,16 @@
+{
+  "name": "uipath-code-reviewer-enterprise",
+  "version": "1.0.0",
+  "description": "AI-powered UiPath XAML code reviews using a local Ollama LLM. No API keys, no billing, no cloud calls.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  }
+}
