@@ -1,3 +1,167 @@
+/* ---------- Persistent local state (History / Trends / Clients & People / Rules) ----------
+   The backend (server.js) only exposes /api/health and /api/review — it has no storage for
+   history, clients, people, or rules. Those features are implemented client-side against
+   localStorage so the Review tab's real AI integration stays untouched. */
+
+const STORAGE_KEY = "uipathReviewer.v1";
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) throw new Error("empty");
+    const parsed = JSON.parse(raw);
+    return {
+      reviews: Array.isArray(parsed.reviews) ? parsed.reviews : [],
+      clients: Array.isArray(parsed.clients) ? parsed.clients : [],
+      people: Array.isArray(parsed.people) ? parsed.people : [],
+      rules: Array.isArray(parsed.rules) ? parsed.rules : [],
+    };
+  } catch {
+    return { reviews: [], clients: [], people: [], rules: [] };
+  }
+}
+
+const state = loadState();
+
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str ?? "";
+  return div.innerHTML;
+}
+
+/* ---------- Shared severity / status mapping ----------
+   Server always returns finding.severity as "high" | "medium" | "low". We map those to the
+   critical/warning/info badge vocabulary used consistently across Review, History, and the
+   exported report. Category "pass" status is derived from score thresholds. */
+
+function severityToBadge(severity) {
+  return { high: "critical", medium: "warning", low: "info" }[severity] || "info";
+}
+
+function severityRank(severity) {
+  return { high: 0, medium: 1, low: 2 }[severity] ?? 3;
+}
+
+function scoreStatus(score) {
+  if (score >= 80) return "pass";
+  if (score >= 50) return "warning";
+  return "critical";
+}
+
+/* ---------- Shared render helpers (used by Review tab, History modal, and export HTML) ---------- */
+
+function renderScoreRingHtml(score, size) {
+  const status = scoreStatus(score);
+  const sizeClass = size === "sm" ? " sm" : "";
+  return `<div class="score-ring${sizeClass} ${status}">${score ?? "–"}</div>`;
+}
+
+function renderCategoryCardHtml(cat) {
+  return `
+    <div class="category-card">
+      <div class="cat-name"><span>${escapeHtml(cat.name)}</span><span class="cat-score">${cat.score}</span></div>
+      <div class="cat-comments">${escapeHtml(cat.comments || "")}</div>
+    </div>
+  `;
+}
+
+function renderFindingCardHtml(finding) {
+  const badge = severityToBadge(finding.severity);
+  return `
+    <div class="finding-card ${badge}">
+      <div class="finding-title">
+        <span class="severity-badge ${badge}">${escapeHtml(finding.severity || "low")}</span>
+        ${escapeHtml(finding.title || "")}
+      </div>
+      <div class="finding-desc">${escapeHtml(finding.description || "")}</div>
+      <div class="finding-rec"><strong>Recommendation:</strong> ${escapeHtml(finding.recommendation || "")}</div>
+    </div>
+  `;
+}
+
+function renderReviewBodyHtml(record) {
+  const categories = record.categories || [];
+  const findings = [...(record.findings || [])].sort(
+    (a, b) => severityRank(a.severity) - severityRank(b.severity)
+  );
+
+  const meta = [];
+  if (record.fileName) meta.push(escapeHtml(record.fileName));
+  if (record.clientName) meta.push(`Client: ${escapeHtml(record.clientName)}`);
+  if (record.reviewerName) meta.push(`Reviewer: ${escapeHtml(record.reviewerName)}`);
+  if (record.timestamp) meta.push(new Date(record.timestamp).toLocaleString());
+
+  return `
+    <p style="color: var(--muted); font-size: 0.82rem; margin: 0 0 var(--sp-3);">${meta.join(" · ")}</p>
+    <div class="score-summary">
+      ${renderScoreRingHtml(record.overallScore)}
+      <p id="summary-text">${escapeHtml(record.summary || "")}</p>
+    </div>
+    <h3>Category Scores</h3>
+    <div class="categories">${categories.map(renderCategoryCardHtml).join("")}</div>
+    <h3>Findings</h3>
+    <div class="findings">${
+      findings.length
+        ? findings.map(renderFindingCardHtml).join("")
+        : `<p class="empty-state">No findings — nice and clean.</p>`
+    }</div>
+  `;
+}
+
+/* ---------- Tab switching ---------- */
+
+const tabButtons = document.querySelectorAll(".tab-btn");
+const tabPanels = document.querySelectorAll(".tab-panel");
+
+tabButtons.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const target = btn.dataset.tab;
+    tabButtons.forEach((b) => b.classList.toggle("active", b === btn));
+    tabPanels.forEach((p) => p.classList.toggle("active", p.id === `tab-${target}`));
+    if (target === "history") renderHistoryTab();
+    if (target === "trends") renderTrendsTab();
+    if (target === "people") renderPeopleTab();
+    if (target === "rules") renderRulesTab();
+  });
+});
+
+/* ---------- Modal ---------- */
+
+const modalOverlay = document.getElementById("modal-overlay");
+const modalTitle = document.getElementById("modal-title");
+const modalBody = document.getElementById("modal-body");
+const modalFooter = document.getElementById("modal-footer");
+const modalCloseBtn = document.getElementById("modal-close-btn");
+
+function openModal(title, bodyHtml, footerButtons = []) {
+  modalTitle.textContent = title;
+  modalBody.innerHTML = bodyHtml;
+  modalFooter.innerHTML = "";
+  footerButtons.forEach((btn) => modalFooter.appendChild(btn));
+  modalOverlay.hidden = false;
+}
+
+function closeModal() {
+  modalOverlay.hidden = true;
+  modalBody.innerHTML = "";
+  modalFooter.innerHTML = "";
+}
+
+modalCloseBtn.addEventListener("click", closeModal);
+modalOverlay.addEventListener("click", (e) => {
+  if (e.target === modalOverlay) closeModal();
+});
+
+/* ---------- Review tab ---------- */
+
 const statusDot = document.getElementById("status-dot");
 const statusText = document.getElementById("status-text");
 const reviewBtn = document.getElementById("review-btn");
@@ -7,6 +171,11 @@ const overallScoreEl = document.getElementById("overall-score");
 const summaryTextEl = document.getElementById("summary-text");
 const categoriesEl = document.getElementById("categories");
 const findingsEl = document.getElementById("findings");
+const exportBtn = document.getElementById("export-btn");
+const clientSelect = document.getElementById("client-select");
+const reviewerSelect = document.getElementById("reviewer-select");
+
+let lastReviewRecord = null;
 
 async function refreshStatus() {
   try {
@@ -25,59 +194,28 @@ async function refreshStatus() {
   }
 }
 
-function severityRank(severity) {
-  return { high: 0, medium: 1, low: 2 }[severity] ?? 3;
-}
-
 function renderResults(review) {
+  overallScoreEl.className = `score-ring ${scoreStatus(review.overallScore)}`;
   overallScoreEl.textContent = review.overallScore ?? "–";
   summaryTextEl.textContent = review.summary ?? "";
 
-  categoriesEl.innerHTML = "";
-  (review.categories || []).forEach((cat) => {
-    const card = document.createElement("div");
-    card.className = "category-card";
-    card.innerHTML = `
-      <div class="cat-name">${escapeHtml(cat.name)} — <span class="cat-score">${cat.score}</span></div>
-      <div class="cat-comments">${escapeHtml(cat.comments || "")}</div>
-    `;
-    categoriesEl.appendChild(card);
-  });
+  categoriesEl.innerHTML = (review.categories || []).map(renderCategoryCardHtml).join("");
 
-  findingsEl.innerHTML = "";
   const findings = [...(review.findings || [])].sort(
     (a, b) => severityRank(a.severity) - severityRank(b.severity)
   );
-  if (findings.length === 0) {
-    findingsEl.innerHTML = `<p style="color: var(--muted)">No findings — nice and clean.</p>`;
-  }
-  findings.forEach((finding) => {
-    const card = document.createElement("div");
-    const severity = finding.severity || "low";
-    card.className = `finding-card ${severity}`;
-    card.innerHTML = `
-      <div class="finding-title">
-        <span class="severity-tag ${severity}">${severity}</span>
-        ${escapeHtml(finding.title || "")}
-      </div>
-      <div class="finding-desc">${escapeHtml(finding.description || "")}</div>
-      <div class="finding-rec"><strong>Recommendation:</strong> ${escapeHtml(finding.recommendation || "")}</div>
-    `;
-    findingsEl.appendChild(card);
-  });
+  findingsEl.innerHTML = findings.length
+    ? findings.map(renderFindingCardHtml).join("")
+    : `<p class="empty-state">No findings — nice and clean.</p>`;
 
   resultsPanel.hidden = false;
-}
-
-function escapeHtml(str) {
-  const div = document.createElement("div");
-  div.textContent = str;
-  return div.innerHTML;
 }
 
 reviewBtn.addEventListener("click", async () => {
   const fileName = document.getElementById("filename").value.trim() || "Untitled.xaml";
   const xaml = document.getElementById("xaml-input").value;
+  const clientId = clientSelect.value;
+  const reviewerId = reviewerSelect.value;
 
   errorBox.hidden = true;
   errorBox.textContent = "";
@@ -104,15 +242,401 @@ reviewBtn.addEventListener("click", async () => {
     }
 
     renderResults(data.review);
+
+    const client = state.clients.find((c) => c.id === clientId);
+    const person = state.people.find((p) => p.id === reviewerId);
+
+    lastReviewRecord = {
+      id: uid(),
+      fileName,
+      xaml,
+      model: data.model,
+      timestamp: Date.now(),
+      clientId: clientId || null,
+      clientName: client ? client.name : null,
+      reviewerId: reviewerId || null,
+      reviewerName: person ? person.name : null,
+      overallScore: data.review.overallScore,
+      summary: data.review.summary,
+      categories: data.review.categories || [],
+      findings: data.review.findings || [],
+    };
+
+    state.reviews.unshift(lastReviewRecord);
+    state.reviews = state.reviews.slice(0, 50);
+    saveState();
   } catch (err) {
     errorBox.hidden = false;
     errorBox.textContent = err.message;
     resultsPanel.hidden = true;
+    lastReviewRecord = null;
   } finally {
     reviewBtn.disabled = false;
     reviewBtn.textContent = "Run Review";
   }
 });
 
+/* ---------- Export (shared HTML report generator) ---------- */
+
+function buildReportHtml(record) {
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Review report — ${escapeHtml(record.fileName)}</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f4f5f7; color: #1f2430; padding: 32px; }
+  .report { max-width: 720px; margin: 0 auto; background: #fff; border: 1px solid #e3e6ea; border-radius: 14px; padding: 24px; box-shadow: 0 1px 3px rgba(16,24,40,0.07); }
+  h1 { font-size: 1.15rem; }
+  h3 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: #6b7280; margin: 24px 0 12px; }
+  .score-summary { display: flex; align-items: center; gap: 24px; }
+  .score-ring { width: 68px; height: 68px; border-radius: 50%; border: 3px solid #3454d1; background: rgba(52,84,209,0.08); display: flex; align-items: center; justify-content: center; font-size: 1.15rem; font-weight: 700; color: #3454d1; flex-shrink: 0; }
+  .score-ring.pass { border-color: #0e9f8e; background: rgba(14,159,142,0.1); color: #0e9f8e; }
+  .score-ring.warning { border-color: #d98a1f; background: rgba(217,138,31,0.12); color: #d98a1f; }
+  .score-ring.critical { border-color: #d6455a; background: rgba(214,69,90,0.1); color: #d6455a; }
+  .categories { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  .category-card { border: 1px solid #e3e6ea; background: #f8f9fb; border-radius: 10px; padding: 12px 16px; }
+  .cat-name { font-weight: 600; font-size: 0.85rem; display: flex; justify-content: space-between; gap: 8px; }
+  .cat-comments { color: #6b7280; font-size: 0.8rem; margin-top: 4px; }
+  .findings { display: flex; flex-direction: column; gap: 12px; }
+  .finding-card { border: 1px solid #e3e6ea; border-left: 4px solid #6b7280; background: #f8f9fb; border-radius: 10px; padding: 12px 16px; }
+  .finding-card.critical { border-left-color: #d6455a; }
+  .finding-card.warning { border-left-color: #d98a1f; }
+  .finding-card.info { border-left-color: #3454d1; }
+  .finding-title { font-weight: 600; font-size: 0.9rem; display: flex; align-items: center; gap: 8px; }
+  .severity-badge { font-size: 0.68rem; text-transform: uppercase; padding: 2px 9px; border-radius: 999px; font-weight: 700; }
+  .severity-badge.critical { background: rgba(214,69,90,0.1); color: #d6455a; }
+  .severity-badge.warning { background: rgba(217,138,31,0.12); color: #d98a1f; }
+  .severity-badge.info { background: rgba(52,84,209,0.08); color: #3454d1; }
+  .finding-desc, .finding-rec { font-size: 0.84rem; color: #6b7280; margin-top: 4px; }
+  .finding-rec strong { color: #1f2430; }
+</style>
+</head>
+<body>
+  <div class="report">
+    <h1>UiPath Code Reviewer Enterprise — Review Report</h1>
+    ${renderReviewBodyHtml(record)}
+  </div>
+</body>
+</html>`;
+}
+
+function downloadReport(record) {
+  const html = buildReportHtml(record);
+  const blob = new Blob([html], { type: "text/html" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${(record.fileName || "review").replace(/\.xaml$/i, "")}-report.html`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function openExportModal(record) {
+  const downloadBtn = document.createElement("button");
+  downloadBtn.className = "btn btn-primary";
+  downloadBtn.type = "button";
+  downloadBtn.textContent = "Download HTML report";
+  downloadBtn.addEventListener("click", () => downloadReport(record));
+
+  openModal(
+    "Export preview",
+    `<div class="panel" style="box-shadow:none;">${renderReviewBodyHtml(record)}</div>`,
+    [downloadBtn]
+  );
+}
+
+exportBtn.addEventListener("click", () => {
+  if (!lastReviewRecord) return;
+  openExportModal(lastReviewRecord);
+});
+
+/* ---------- History tab ---------- */
+
+const historyListEl = document.getElementById("history-list");
+const clearHistoryBtn = document.getElementById("clear-history-btn");
+
+function renderHistoryTab() {
+  if (state.reviews.length === 0) {
+    historyListEl.innerHTML = `<p class="empty-state">No reviews yet — run one from the Review tab.</p>`;
+    return;
+  }
+
+  historyListEl.innerHTML = "";
+  state.reviews.forEach((record) => {
+    const row = document.createElement("div");
+    row.className = "history-row";
+    row.tabIndex = 0;
+
+    const status = scoreStatus(record.overallScore);
+    const meta = [new Date(record.timestamp).toLocaleString()];
+    if (record.clientName) meta.push(record.clientName);
+    if (record.reviewerName) meta.push(record.reviewerName);
+
+    row.innerHTML = `
+      ${renderScoreRingHtml(record.overallScore, "sm")}
+      <div class="history-main">
+        <div class="history-file">${escapeHtml(record.fileName)}</div>
+        <div class="history-meta">${meta.map(escapeHtml).join(" · ")}</div>
+      </div>
+      <span class="severity-badge ${status}">${status}</span>
+    `;
+
+    const openDetail = () => {
+      const exportHistBtn = document.createElement("button");
+      exportHistBtn.className = "btn btn-secondary";
+      exportHistBtn.type = "button";
+      exportHistBtn.textContent = "Export HTML report";
+      exportHistBtn.addEventListener("click", () => downloadReport(record));
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.className = "btn btn-tertiary";
+      deleteBtn.type = "button";
+      deleteBtn.textContent = "Delete";
+      deleteBtn.addEventListener("click", () => {
+        state.reviews = state.reviews.filter((r) => r.id !== record.id);
+        saveState();
+        closeModal();
+        renderHistoryTab();
+      });
+
+      openModal(record.fileName, renderReviewBodyHtml(record), [deleteBtn, exportHistBtn]);
+    };
+
+    row.addEventListener("click", openDetail);
+    row.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        openDetail();
+      }
+    });
+
+    historyListEl.appendChild(row);
+  });
+}
+
+clearHistoryBtn.addEventListener("click", () => {
+  if (state.reviews.length === 0) return;
+  if (!confirm("Clear all saved review history? This can't be undone.")) return;
+  state.reviews = [];
+  saveState();
+  renderHistoryTab();
+});
+
+/* ---------- Trends tab ---------- */
+
+function renderTrendsTab() {
+  const reviews = state.reviews;
+  const total = reviews.length;
+  const avg = total ? Math.round(reviews.reduce((s, r) => s + (r.overallScore || 0), 0) / total) : null;
+  const criticalCount = reviews.reduce(
+    (sum, r) => sum + (r.findings || []).filter((f) => f.severity === "high").length,
+    0
+  );
+  const latest = total ? reviews[0].overallScore : null;
+
+  document.getElementById("stat-total").textContent = total;
+  document.getElementById("stat-avg").textContent = avg ?? "–";
+  document.getElementById("stat-critical").textContent = criticalCount;
+  document.getElementById("stat-latest").textContent = latest ?? "–";
+
+  renderTrendChart(reviews);
+  renderCategoryTrends(reviews);
+}
+
+function renderTrendChart(reviews) {
+  const svg = document.getElementById("trend-chart");
+  const ordered = [...reviews].reverse().slice(-20);
+
+  if (ordered.length < 2) {
+    svg.innerHTML = `<text x="20" y="100" fill="#6b7280" font-size="13">Run at least two reviews to see a trend line.</text>`;
+    return;
+  }
+
+  const width = 640;
+  const height = 200;
+  const padding = 20;
+  const step = (width - padding * 2) / (ordered.length - 1);
+
+  const points = ordered.map((r, i) => {
+    const x = padding + i * step;
+    const y = height - padding - ((r.overallScore || 0) / 100) * (height - padding * 2);
+    return `${x},${y}`;
+  });
+
+  const circles = ordered
+    .map((r, i) => {
+      const [x, y] = points[i].split(",");
+      return `<circle cx="${x}" cy="${y}" r="3.5" fill="#3454d1" />`;
+    })
+    .join("");
+
+  svg.innerHTML = `
+    <polyline points="${points.join(" ")}" fill="none" stroke="#3454d1" stroke-width="2" />
+    ${circles}
+  `;
+}
+
+function renderCategoryTrends(reviews) {
+  const el = document.getElementById("category-trends");
+  if (reviews.length === 0) {
+    el.innerHTML = `<p class="empty-state">No category data yet.</p>`;
+    return;
+  }
+
+  const sums = {};
+  const counts = {};
+  reviews.forEach((r) => {
+    (r.categories || []).forEach((cat) => {
+      sums[cat.name] = (sums[cat.name] || 0) + cat.score;
+      counts[cat.name] = (counts[cat.name] || 0) + 1;
+    });
+  });
+
+  el.innerHTML = Object.keys(sums)
+    .map((name) => {
+      const avg = Math.round(sums[name] / counts[name]);
+      return renderCategoryCardHtml({ name, score: avg, comments: `Averaged across ${counts[name]} review${counts[name] === 1 ? "" : "s"}` });
+    })
+    .join("");
+}
+
+/* ---------- Clients & People tab ---------- */
+
+const clientInput = document.getElementById("client-input");
+const addClientBtn = document.getElementById("add-client-btn");
+const clientListEl = document.getElementById("client-list");
+
+const personInput = document.getElementById("person-input");
+const addPersonBtn = document.getElementById("add-person-btn");
+const personListEl = document.getElementById("person-list");
+
+function renderListRow(name, onRemove) {
+  const row = document.createElement("div");
+  row.className = "list-row";
+  row.innerHTML = `<div class="list-main"><div class="list-name">${escapeHtml(name)}</div></div>`;
+  const removeBtn = document.createElement("button");
+  removeBtn.className = "btn btn-tertiary btn-sm";
+  removeBtn.type = "button";
+  removeBtn.textContent = "Remove";
+  removeBtn.addEventListener("click", onRemove);
+  row.appendChild(removeBtn);
+  return row;
+}
+
+function renderPeopleTab() {
+  clientListEl.innerHTML = "";
+  if (state.clients.length === 0) {
+    clientListEl.innerHTML = `<p class="empty-state">No clients yet.</p>`;
+  } else {
+    state.clients.forEach((c) => {
+      clientListEl.appendChild(
+        renderListRow(c.name, () => {
+          state.clients = state.clients.filter((x) => x.id !== c.id);
+          saveState();
+          renderPeopleTab();
+          populateSelectors();
+        })
+      );
+    });
+  }
+
+  personListEl.innerHTML = "";
+  if (state.people.length === 0) {
+    personListEl.innerHTML = `<p class="empty-state">No people yet.</p>`;
+  } else {
+    state.people.forEach((p) => {
+      personListEl.appendChild(
+        renderListRow(p.name, () => {
+          state.people = state.people.filter((x) => x.id !== p.id);
+          saveState();
+          renderPeopleTab();
+          populateSelectors();
+        })
+      );
+    });
+  }
+}
+
+function addClient() {
+  const name = clientInput.value.trim();
+  if (!name) return;
+  state.clients.push({ id: uid(), name });
+  saveState();
+  clientInput.value = "";
+  renderPeopleTab();
+  populateSelectors();
+}
+
+function addPerson() {
+  const name = personInput.value.trim();
+  if (!name) return;
+  state.people.push({ id: uid(), name });
+  saveState();
+  personInput.value = "";
+  renderPeopleTab();
+  populateSelectors();
+}
+
+addClientBtn.addEventListener("click", addClient);
+clientInput.addEventListener("keydown", (e) => e.key === "Enter" && addClient());
+addPersonBtn.addEventListener("click", addPerson);
+personInput.addEventListener("keydown", (e) => e.key === "Enter" && addPerson());
+
+function populateSelectors() {
+  clientSelect.innerHTML = `<option value="">— None —</option>` +
+    state.clients.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("");
+  reviewerSelect.innerHTML = `<option value="">— None —</option>` +
+    state.people.map((p) => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");
+}
+
+/* ---------- Rules tab ---------- */
+
+const ruleInput = document.getElementById("rule-input");
+const addRuleBtn = document.getElementById("add-rule-btn");
+const ruleListEl = document.getElementById("rule-list");
+
+function renderRulesTab() {
+  ruleListEl.innerHTML = "";
+  if (state.rules.length === 0) {
+    ruleListEl.innerHTML = `<p class="empty-state">No custom rules yet.</p>`;
+    return;
+  }
+
+  state.rules.forEach((rule) => {
+    const row = document.createElement("div");
+    row.className = "rule-row";
+    row.innerHTML = `<div class="rule-text">${escapeHtml(rule.text)}</div>`;
+    const removeBtn = document.createElement("button");
+    removeBtn.className = "btn btn-tertiary btn-sm";
+    removeBtn.type = "button";
+    removeBtn.textContent = "Remove";
+    removeBtn.addEventListener("click", () => {
+      state.rules = state.rules.filter((r) => r.id !== rule.id);
+      saveState();
+      renderRulesTab();
+    });
+    row.appendChild(removeBtn);
+    ruleListEl.appendChild(row);
+  });
+}
+
+function addRule() {
+  const text = ruleInput.value.trim();
+  if (!text) return;
+  state.rules.push({ id: uid(), text });
+  saveState();
+  ruleInput.value = "";
+  renderRulesTab();
+}
+
+addRuleBtn.addEventListener("click", addRule);
+ruleInput.addEventListener("keydown", (e) => e.key === "Enter" && addRule());
+
+/* ---------- Init ---------- */
+
+populateSelectors();
 refreshStatus();
 setInterval(refreshStatus, 10000);

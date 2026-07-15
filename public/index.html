@@ -1,10 +1,495 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>UiPath Code Reviewer Enterprise</title>
-  <link rel="stylesheet" href="/styles.css" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>UiPath Code Reviewer Enterprise</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f4f5f7;
+    --panel: #ffffff;
+    --panel-alt: #f8f9fb;
+    --text: #1f2430;
+    --muted: #6b7280;
+    --border: #e3e6ea;
+
+    --accent: #3454d1;
+    --accent-hover: #2c46b8;
+    --accent-soft: rgba(52, 84, 209, 0.08);
+    --accent-ring: rgba(52, 84, 209, 0.25);
+
+    --teal: #0e9f8e;
+    --teal-hover: #0c8a7b;
+    --teal-soft: rgba(14, 159, 142, 0.1);
+
+    --critical: #d6455a;
+    --critical-soft: rgba(214, 69, 90, 0.1);
+    --warning: #d98a1f;
+    --warning-soft: rgba(217, 138, 31, 0.12);
+    --info: #3454d1;
+    --info-soft: rgba(52, 84, 209, 0.08);
+    --pass: #0e9f8e;
+    --pass-soft: rgba(14, 159, 142, 0.1);
+
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+
+    --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.07);
+    --shadow-modal: 0 12px 40px rgba(16, 24, 40, 0.22);
+
+    --sp-1: 4px;
+    --sp-2: 8px;
+    --sp-3: 12px;
+    --sp-4: 16px;
+    --sp-5: 24px;
+    --sp-6: 32px;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--accent); }
+
+  /* ---------- Top nav + tabs ---------- */
+
+  .topnav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px var(--sp-6);
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .brand-name { font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em; }
+
+  .brand-tag {
+    margin-left: var(--sp-2);
+    font-size: 0.72rem;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-radius: 999px;
+    padding: 2px 9px;
+    font-weight: 600;
+    vertical-align: middle;
+  }
+
+  .status-badge {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: 0.82rem;
+    color: var(--muted);
+  }
+
+  .status-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+  .status-dot.online { background: var(--pass); box-shadow: 0 0 0 3px var(--pass-soft); }
+  .status-dot.offline { background: var(--critical); box-shadow: 0 0 0 3px var(--critical-soft); }
+
+  .tabs {
+    display: flex;
+    gap: var(--sp-1);
+    padding: 0 var(--sp-6);
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+
+  .tab-btn {
+    appearance: none;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 0.85rem;
+    padding: 12px var(--sp-3);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color 0.12s ease, border-color 0.12s ease;
+  }
+
+  .tab-btn:hover { color: var(--text); }
+
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .tab-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--accent-ring);
+    border-radius: var(--radius-sm);
+  }
+
+  /* ---------- Layout ---------- */
+
+  .container {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: var(--sp-6) var(--sp-5);
+  }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: flex; flex-direction: column; gap: var(--sp-5); }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--sp-5);
+    box-shadow: var(--shadow-card);
+  }
+
+  .panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--sp-4);
+    flex-wrap: wrap;
+  }
+
+  .panel-header h1, .panel-header h2 { margin: 0; }
+
+  h1 { font-size: 1.15rem; font-weight: 700; letter-spacing: -0.01em; }
+  h2 { font-size: 1.05rem; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 var(--sp-1); }
+  h3 {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    margin: var(--sp-5) 0 var(--sp-3);
+  }
+
+  .subtitle { color: var(--muted); margin: var(--sp-2) 0 0; line-height: 1.5; max-width: 640px; }
+
+  /* ---------- Form controls ---------- */
+
+  label {
+    display: block;
+    margin-top: var(--sp-4);
+    margin-bottom: var(--sp-2);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  input[type="text"], select, textarea {
+    width: 100%;
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 9px 12px;
+    font-family: inherit;
+    font-size: 0.88rem;
+    min-width: 0;
+    transition: border-color 0.12s ease, box-shadow 0.12s ease;
+  }
+
+  input[type="text"]:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-ring);
+  }
+
+  textarea {
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.83rem;
+    line-height: 1.55;
+    resize: vertical;
+  }
+
+  .field-row {
+    display: flex;
+    gap: var(--sp-4);
+    flex-wrap: wrap;
+  }
+
+  .field-row > div { flex: 1 1 220px; min-width: 0; }
+
+  /* Prevents the classic "button squeezed to nothing" bug: input grows,
+     button keeps its intrinsic width no matter how narrow the row gets. */
+  .input-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+  }
+
+  .input-row input { flex: 1 1 auto; min-width: 0; }
+  .input-row button, .input-row .btn { flex-shrink: 0; }
+
+  /* ---------- Buttons (primary / secondary / tertiary hierarchy) ---------- */
+
+  .btn {
+    appearance: none;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    padding: 9px 16px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
+  }
+
+  .btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
+  .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+
+  .btn-secondary { background: var(--panel); border-color: var(--border); color: var(--text); }
+  .btn-secondary:hover:not(:disabled) { background: var(--panel-alt); border-color: var(--accent); color: var(--accent); }
+
+  .btn-tertiary { background: transparent; border-color: transparent; color: var(--critical); padding: 7px 10px; }
+  .btn-tertiary:hover:not(:disabled) { background: var(--critical-soft); }
+
+  .btn-sm { padding: 6px 12px; font-size: 0.78rem; }
+
+  .error-box {
+    margin-top: var(--sp-3);
+    background: var(--critical-soft);
+    border: 1px solid var(--critical);
+    color: var(--critical);
+    border-radius: var(--radius-sm);
+    padding: 11px 14px;
+    font-size: 0.85rem;
+  }
+
+  .empty-state {
+    color: var(--muted);
+    font-size: 0.85rem;
+    padding: var(--sp-4) 0;
+  }
+
+  /* ---------- Score ring (shared: Review / History modal / export) ---------- */
+
+  .score-summary { display: flex; align-items: center; gap: var(--sp-5); flex-wrap: wrap; }
+
+  .score-ring {
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    border: 3px solid var(--accent);
+    background: var(--accent-soft);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+
+  .score-ring.sm { width: 44px; height: 44px; font-size: 0.9rem; border-width: 2px; }
+
+  .score-ring.pass { border-color: var(--pass); background: var(--pass-soft); color: var(--pass); }
+  .score-ring.warning { border-color: var(--warning); background: var(--warning-soft); color: var(--warning); }
+  .score-ring.critical { border-color: var(--critical); background: var(--critical-soft); color: var(--critical); }
+
+  #summary-text { color: var(--muted); line-height: 1.55; margin: 0; }
+
+  /* ---------- Category cards (shared) ---------- */
+
+  .categories {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: var(--sp-3);
+  }
+
+  .category-card {
+    border: 1px solid var(--border);
+    background: var(--panel-alt);
+    border-radius: var(--radius-md);
+    padding: var(--sp-3) var(--sp-4);
+  }
+
+  .category-card .cat-name { font-weight: 600; font-size: 0.85rem; display: flex; justify-content: space-between; gap: var(--sp-2); }
+  .category-card .cat-score { font-weight: 700; }
+  .category-card .cat-comments { color: var(--muted); font-size: 0.8rem; margin-top: var(--sp-1); line-height: 1.45; }
+
+  /* ---------- Findings + severity badges (shared) ---------- */
+
+  .findings { display: flex; flex-direction: column; gap: var(--sp-3); }
+
+  .finding-card {
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--muted);
+    background: var(--panel-alt);
+    border-radius: var(--radius-md);
+    padding: var(--sp-3) var(--sp-4);
+  }
+
+  .finding-card.critical { border-left-color: var(--critical); }
+  .finding-card.warning { border-left-color: var(--warning); }
+  .finding-card.info { border-left-color: var(--info); }
+  .finding-card.pass { border-left-color: var(--pass); }
+
+  .finding-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+  }
+
+  .severity-badge {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .severity-badge.critical { background: var(--critical-soft); color: var(--critical); }
+  .severity-badge.warning { background: var(--warning-soft); color: var(--warning); }
+  .severity-badge.info { background: var(--info-soft); color: var(--info); }
+  .severity-badge.pass { background: var(--pass-soft); color: var(--pass); }
+
+  .finding-desc, .finding-rec { font-size: 0.84rem; color: var(--muted); margin-top: var(--sp-1); line-height: 1.5; }
+  .finding-rec strong { color: var(--text); }
+
+  /* ---------- History tab ---------- */
+
+  .history-list { display: flex; flex-direction: column; gap: var(--sp-2); }
+
+  .history-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-4);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--panel-alt);
+    cursor: pointer;
+    transition: border-color 0.12s ease, background 0.12s ease;
+  }
+
+  .history-row:hover { border-color: var(--accent); background: var(--accent-soft); }
+
+  .history-row:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
+
+  .history-main { flex: 1 1 auto; min-width: 0; }
+  .history-file { font-weight: 600; font-size: 0.88rem; }
+  .history-meta { color: var(--muted); font-size: 0.78rem; margin-top: 2px; display: flex; gap: var(--sp-3); flex-wrap: wrap; }
+  .history-row .btn { flex-shrink: 0; }
+
+  /* ---------- Trends tab ---------- */
+
+  .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--sp-3); }
+
+  .stat-tile {
+    border: 1px solid var(--border);
+    background: var(--panel-alt);
+    border-radius: var(--radius-md);
+    padding: var(--sp-4);
+  }
+
+  .stat-tile .stat-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; font-weight: 600; }
+  .stat-tile .stat-value { font-size: 1.6rem; font-weight: 700; margin-top: var(--sp-1); }
+
+  .chart-wrap { border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--sp-4); background: var(--panel-alt); overflow-x: auto; }
+
+  /* ---------- Clients & People tab ---------- */
+
+  .two-col { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--sp-5); }
+
+  .list-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-2) 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .list-row:last-child { border-bottom: none; }
+  .list-row .list-main { flex: 1 1 auto; min-width: 0; }
+  .list-row .list-name { font-weight: 600; font-size: 0.87rem; }
+  .list-row .list-sub { color: var(--muted); font-size: 0.78rem; }
+  .list-row .btn { flex-shrink: 0; }
+
+  /* ---------- Rules tab ---------- */
+
+  .rule-row {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-3);
+    padding: var(--sp-3) 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .rule-row:last-child { border-bottom: none; }
+  .rule-text { flex: 1 1 auto; min-width: 0; font-size: 0.87rem; line-height: 1.5; }
+  .rule-row .btn { flex-shrink: 0; }
+
+  .note-box {
+    background: var(--info-soft);
+    border: 1px solid var(--accent);
+    color: var(--text);
+    border-radius: var(--radius-sm);
+    padding: var(--sp-3) var(--sp-4);
+    font-size: 0.83rem;
+    line-height: 1.5;
+  }
+
+  /* ---------- Modal (History detail / Export) ---------- */
+
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(16, 24, 40, 0.45);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: var(--sp-6) var(--sp-4);
+    overflow-y: auto;
+    z-index: 100;
+  }
+
+  .modal-overlay[hidden] { display: none; }
+
+  .modal-card {
+    background: var(--panel);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-modal);
+    width: 100%;
+    max-width: 720px;
+    padding: var(--sp-5);
+  }
+
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--sp-3);
+    margin-bottom: var(--sp-4);
+  }
+
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--sp-2);
+    margin-top: var(--sp-5);
+  }
+
+  @media (max-width: 1100px) {
+    .container { padding: var(--sp-5) var(--sp-4); }
+    .topnav, .tabs { padding-left: var(--sp-4); padding-right: var(--sp-4); }
+  }
+</style>
 </head>
 <body>
   <header class="topnav">
@@ -18,35 +503,167 @@
     </div>
   </header>
 
+  <nav class="tabs" id="tabs">
+    <button class="tab-btn active" data-tab="review" type="button">Review</button>
+    <button class="tab-btn" data-tab="history" type="button">History</button>
+    <button class="tab-btn" data-tab="trends" type="button">Trends</button>
+    <button class="tab-btn" data-tab="people" type="button">Clients &amp; People</button>
+    <button class="tab-btn" data-tab="rules" type="button">Rules</button>
+  </nav>
+
   <main class="container">
-    <section class="panel">
-      <h1>Review a UiPath Workflow</h1>
-      <p class="subtitle">Paste the contents of a .xaml file below. Reviews run entirely on your machine via a local Ollama model — nothing leaves your network.</p>
 
-      <label for="filename">File name</label>
-      <input id="filename" type="text" placeholder="e.g. Main.xaml" value="Main.xaml" />
+    <!-- REVIEW TAB -->
+    <section class="tab-panel active" id="tab-review">
+      <div class="panel">
+        <h1>Review a UiPath Workflow</h1>
+        <p class="subtitle">Paste the contents of a .xaml file below. Reviews run entirely on your machine via a local Ollama model — nothing leaves your network.</p>
 
-      <label for="xaml-input">XAML content</label>
-      <textarea id="xaml-input" rows="16" placeholder="Paste your UiPath XAML here..."></textarea>
+        <div class="field-row">
+          <div>
+            <label for="filename">File name</label>
+            <input id="filename" type="text" placeholder="e.g. Main.xaml" value="Main.xaml" />
+          </div>
+          <div>
+            <label for="client-select">Client</label>
+            <select id="client-select"><option value="">— None —</option></select>
+          </div>
+          <div>
+            <label for="reviewer-select">Reviewer</label>
+            <select id="reviewer-select"><option value="">— None —</option></select>
+          </div>
+        </div>
 
-      <button id="review-btn">Run Review</button>
-      <div id="error-box" class="error-box" hidden></div>
-    </section>
+        <label for="xaml-input">XAML content</label>
+        <textarea id="xaml-input" rows="14" placeholder="Paste your UiPath XAML here..."></textarea>
 
-    <section class="panel" id="results-panel" hidden>
-      <h2>Review Results</h2>
-      <div class="score-summary">
-        <div class="score-circle" id="overall-score">–</div>
-        <p id="summary-text"></p>
+        <button id="review-btn" class="btn btn-primary" type="button" style="margin-top: var(--sp-4);">Run Review</button>
+        <div id="error-box" class="error-box" hidden></div>
       </div>
 
-      <h3>Category Scores</h3>
-      <div id="categories" class="categories"></div>
+      <div class="panel" id="results-panel" hidden>
+        <div class="panel-header">
+          <h2>Review Results</h2>
+          <button id="export-btn" class="btn btn-secondary btn-sm" type="button">Export HTML report</button>
+        </div>
+        <div class="score-summary" style="margin-top: var(--sp-3);">
+          <div class="score-ring" id="overall-score">–</div>
+          <p id="summary-text"></p>
+        </div>
 
-      <h3>Findings</h3>
-      <div id="findings" class="findings"></div>
+        <h3>Category Scores</h3>
+        <div id="categories" class="categories"></div>
+
+        <h3>Findings</h3>
+        <div id="findings" class="findings"></div>
+      </div>
     </section>
+
+    <!-- HISTORY TAB -->
+    <section class="tab-panel" id="tab-history">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <h2>Review History</h2>
+            <p class="subtitle" style="margin-top: var(--sp-1);">Saved locally in this browser. Click a review to see the full detail.</p>
+          </div>
+          <button id="clear-history-btn" class="btn btn-tertiary btn-sm" type="button">Clear all</button>
+        </div>
+        <div id="history-list" class="history-list" style="margin-top: var(--sp-4);"></div>
+      </div>
+    </section>
+
+    <!-- TRENDS TAB -->
+    <section class="tab-panel" id="tab-trends">
+      <div class="panel">
+        <h2>Trends</h2>
+        <p class="subtitle" style="margin-top: var(--sp-1);">Computed from your local review history.</p>
+        <div class="stat-row" style="margin-top: var(--sp-4);">
+          <div class="stat-tile">
+            <div class="stat-label">Total reviews</div>
+            <div class="stat-value" id="stat-total">0</div>
+          </div>
+          <div class="stat-tile">
+            <div class="stat-label">Average score</div>
+            <div class="stat-value" id="stat-avg">–</div>
+          </div>
+          <div class="stat-tile">
+            <div class="stat-label">Critical findings</div>
+            <div class="stat-value" id="stat-critical">0</div>
+          </div>
+          <div class="stat-tile">
+            <div class="stat-label">Latest score</div>
+            <div class="stat-value" id="stat-latest">–</div>
+          </div>
+        </div>
+
+        <h3>Score over time</h3>
+        <div class="chart-wrap">
+          <svg id="trend-chart" width="100%" height="200" viewBox="0 0 640 200" preserveAspectRatio="none"></svg>
+        </div>
+
+        <h3>Average score by category</h3>
+        <div id="category-trends" class="categories"></div>
+      </div>
+    </section>
+
+    <!-- CLIENTS & PEOPLE TAB -->
+    <section class="tab-panel" id="tab-people">
+      <div class="panel">
+        <h2>Clients &amp; People</h2>
+        <p class="subtitle" style="margin-top: var(--sp-1);">Local directory used to tag reviews. Not sent to the AI reviewer.</p>
+
+        <div class="two-col" style="margin-top: var(--sp-4);">
+          <div>
+            <h3 style="margin-top:0;">Clients</h3>
+            <div class="input-row">
+              <input id="client-input" type="text" placeholder="Add a client name…" />
+              <button id="add-client-btn" class="btn btn-primary btn-sm" type="button">Add</button>
+            </div>
+            <div id="client-list" style="margin-top: var(--sp-3);"></div>
+          </div>
+          <div>
+            <h3 style="margin-top:0;">People</h3>
+            <div class="input-row">
+              <input id="person-input" type="text" placeholder="Add a person's name…" />
+              <button id="add-person-btn" class="btn btn-primary btn-sm" type="button">Add</button>
+            </div>
+            <div id="person-list" style="margin-top: var(--sp-3);"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RULES TAB -->
+    <section class="tab-panel" id="tab-rules">
+      <div class="panel">
+        <h2>Custom Rules</h2>
+        <p class="subtitle" style="margin-top: var(--sp-1);">Your own checklist reminders for reviewers.</p>
+        <div class="note-box" style="margin-top: var(--sp-3);">
+          These rules are saved locally for reference only — the AI reviewer's checklist is fixed on the server and isn't updated by this list yet.
+        </div>
+
+        <div class="input-row" style="margin-top: var(--sp-4);">
+          <input id="rule-input" type="text" placeholder="e.g. All Orchestrator assets must use the Prod folder…" />
+          <button id="add-rule-btn" class="btn btn-primary btn-sm" type="button">Add rule</button>
+        </div>
+        <div id="rule-list" style="margin-top: var(--sp-3);"></div>
+      </div>
+    </section>
+
   </main>
+
+  <!-- Shared modal for History detail + Export preview -->
+  <div class="modal-overlay" id="modal-overlay" hidden>
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="modal-title">Details</h2>
+        <button id="modal-close-btn" class="btn btn-secondary btn-sm" type="button">Close</button>
+      </div>
+      <div id="modal-body"></div>
+      <div class="modal-footer" id="modal-footer"></div>
+    </div>
+  </div>
 
   <script src="/app.js"></script>
 </body>
