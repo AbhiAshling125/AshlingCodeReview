@@ -95,8 +95,9 @@ function renderReviewBodyHtml(record) {
 
   const meta = [];
   if (record.fileName) meta.push(escapeHtml(record.fileName));
-  if (record.clientName) meta.push(`Client: ${escapeHtml(record.clientName)}`);
+  if (record.developerName) meta.push(`Developer: ${escapeHtml(record.developerName)}`);
   if (record.reviewerName) meta.push(`Reviewer: ${escapeHtml(record.reviewerName)}`);
+  if (record.clientName) meta.push(`Client: ${escapeHtml(record.clientName)}`);
   if (record.timestamp) meta.push(new Date(record.timestamp).toLocaleString());
 
   return `
@@ -128,6 +129,7 @@ tabButtons.forEach((btn) => {
     tabPanels.forEach((p) => p.classList.toggle("active", p.id === `tab-${target}`));
     if (target === "history") renderHistoryTab();
     if (target === "trends") renderTrendsTab();
+    if (target === "progress") renderProgressTab();
     if (target === "people") renderPeopleTab();
     if (target === "rules") renderRulesTab();
   });
@@ -174,6 +176,7 @@ const findingsEl = document.getElementById("findings");
 const exportBtn = document.getElementById("export-btn");
 const clientSelect = document.getElementById("client-select");
 const reviewerSelect = document.getElementById("reviewer-select");
+const developerSelect = document.getElementById("developer-select");
 
 let lastReviewRecord = null;
 
@@ -216,6 +219,7 @@ reviewBtn.addEventListener("click", async () => {
   const xaml = document.getElementById("xaml-input").value;
   const clientId = clientSelect.value;
   const reviewerId = reviewerSelect.value;
+  const developerId = developerSelect.value;
 
   errorBox.hidden = true;
   errorBox.textContent = "";
@@ -244,7 +248,8 @@ reviewBtn.addEventListener("click", async () => {
     renderResults(data.review);
 
     const client = state.clients.find((c) => c.id === clientId);
-    const person = state.people.find((p) => p.id === reviewerId);
+    const reviewerPerson = state.people.find((p) => p.id === reviewerId);
+    const developerPerson = state.people.find((p) => p.id === developerId);
 
     lastReviewRecord = {
       id: uid(),
@@ -255,7 +260,9 @@ reviewBtn.addEventListener("click", async () => {
       clientId: clientId || null,
       clientName: client ? client.name : null,
       reviewerId: reviewerId || null,
-      reviewerName: person ? person.name : null,
+      reviewerName: reviewerPerson ? reviewerPerson.name : null,
+      developerId: developerId || null,
+      developerName: developerPerson ? developerPerson.name : null,
       overallScore: data.review.overallScore,
       summary: data.review.summary,
       categories: data.review.categories || [],
@@ -372,6 +379,7 @@ function renderHistoryTab() {
 
     const status = scoreStatus(record.overallScore);
     const meta = [new Date(record.timestamp).toLocaleString()];
+    if (record.developerName) meta.push(`Dev: ${record.developerName}`);
     if (record.clientName) meta.push(record.clientName);
     if (record.reviewerName) meta.push(record.reviewerName);
 
@@ -442,21 +450,20 @@ function renderTrendsTab() {
   document.getElementById("stat-critical").textContent = criticalCount;
   document.getElementById("stat-latest").textContent = latest ?? "–";
 
-  renderTrendChart(reviews);
-  renderCategoryTrends(reviews);
+  renderTrendChart(reviews, "trend-chart", 200);
+  renderCategoryTrends(reviews, "category-trends");
 }
 
-function renderTrendChart(reviews) {
-  const svg = document.getElementById("trend-chart");
+function renderTrendChart(reviews, svgId, height) {
+  const svg = document.getElementById(svgId);
   const ordered = [...reviews].reverse().slice(-20);
 
   if (ordered.length < 2) {
-    svg.innerHTML = `<text x="20" y="100" fill="#6b7280" font-size="13">Run at least two reviews to see a trend line.</text>`;
+    svg.innerHTML = `<text x="20" y="${height / 2}" fill="#6b7280" font-size="13">Run at least two reviews to see a trend line.</text>`;
     return;
   }
 
   const width = 640;
-  const height = 200;
   const padding = 20;
   const step = (width - padding * 2) / (ordered.length - 1);
 
@@ -479,8 +486,8 @@ function renderTrendChart(reviews) {
   `;
 }
 
-function renderCategoryTrends(reviews) {
-  const el = document.getElementById("category-trends");
+function renderCategoryTrends(reviews, elId) {
+  const el = document.getElementById(elId);
   if (reviews.length === 0) {
     el.innerHTML = `<p class="empty-state">No category data yet.</p>`;
     return;
@@ -502,6 +509,206 @@ function renderCategoryTrends(reviews) {
     })
     .join("");
 }
+
+/* ---------- Developer Progress tab ---------- */
+
+const TRAINING_SUGGESTIONS = {
+  "naming conventions": "Naming & readability standards — REFramework variable/activity naming conventions.",
+  "error handling": "Exception handling patterns — Try Catch scopes, Retry Scope, and avoiding swallowed exceptions.",
+  "hardcoded values": "Configuration-driven design — externalizing values via Config files and Orchestrator Assets.",
+  "logging": "Structured logging practices — meaningful Log Message levels, including in catch blocks.",
+  "performance": "Automation performance tuning — reducing Delays, optimizing UI Automation, avoiding unbounded loops.",
+  "maintainability": "Workflow modularity — breaking down long sequences, effective use of Invoke Workflow.",
+  "security": "Secure credential handling — Orchestrator Credential/Asset stores, avoiding plaintext secrets.",
+};
+
+function trainingSuggestionFor(categoryName) {
+  return TRAINING_SUGGESTIONS[categoryName.toLowerCase()] || `Review UiPath best practices for ${categoryName}.`;
+}
+
+const progressDeveloperSelect = document.getElementById("progress-developer-select");
+const progressEmptyEl = document.getElementById("progress-empty");
+const progressContentEl = document.getElementById("progress-content");
+
+function populateProgressDeveloperSelect() {
+  const developedIds = new Set(state.reviews.filter((r) => r.developerId).map((r) => r.developerId));
+  const developers = state.people.filter((p) => developedIds.has(p.id));
+  const previousValue = progressDeveloperSelect.value;
+
+  progressDeveloperSelect.innerHTML =
+    `<option value="">Select a developer…</option>` +
+    developers.map((p) => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");
+
+  if (developers.some((p) => p.id === previousValue)) {
+    progressDeveloperSelect.value = previousValue;
+  } else if (developers.length === 1) {
+    progressDeveloperSelect.value = developers[0].id;
+  }
+}
+
+function computeTrend(scores) {
+  if (scores.length < 2) return { label: "Not enough data", cls: "" };
+  const mid = Math.floor(scores.length / 2);
+  const earlier = scores.slice(0, mid);
+  const later = scores.slice(mid);
+  const avg = (arr) => arr.reduce((s, v) => s + v, 0) / arr.length;
+  const delta = avg(later) - avg(earlier);
+
+  if (delta >= 4) return { label: "↑ Improving", cls: "pass" };
+  if (delta <= -4) return { label: "↓ Declining", cls: "critical" };
+  return { label: "→ Steady", cls: "warning" };
+}
+
+function renderProgressForDeveloper(developerId) {
+  const reviews = state.reviews.filter((r) => r.developerId === developerId);
+
+  if (reviews.length === 0) {
+    progressEmptyEl.hidden = false;
+    progressContentEl.hidden = true;
+    return;
+  }
+
+  progressEmptyEl.hidden = true;
+  progressContentEl.hidden = false;
+
+  const chronological = [...reviews].reverse();
+  const scores = chronological.map((r) => r.overallScore || 0);
+  const avg = Math.round(scores.reduce((s, v) => s + v, 0) / scores.length);
+  const trend = computeTrend(scores);
+
+  document.getElementById("progress-total").textContent = reviews.length;
+  document.getElementById("progress-avg").textContent = avg;
+  document.getElementById("progress-latest").textContent = reviews[0].overallScore ?? "–";
+
+  const trendEl = document.getElementById("progress-trend");
+  trendEl.innerHTML = trend.cls
+    ? `<span class="severity-badge ${trend.cls}">${trend.label}</span>`
+    : trend.label;
+
+  renderTrendChart(reviews, "progress-chart", 180);
+  renderCategoryTrends(reviews, "progress-categories");
+
+  // Recurring issues: group findings by title across this developer's reviews.
+  // `reviews` is already newest-first, so the first occurrence encountered per
+  // key is the most recent one — its wording is what we keep.
+  const groups = new Map();
+  reviews.forEach((r) => {
+    (r.findings || []).forEach((f) => {
+      const key = (f.title || "Untitled finding").trim().toLowerCase();
+      if (!groups.has(key)) {
+        groups.set(key, { title: f.title, severity: f.severity, description: f.description, recommendation: f.recommendation, count: 0 });
+      }
+      groups.get(key).count += 1;
+    });
+  });
+
+  const recurring = [...groups.values()]
+    .filter((entry) => entry.count > 1)
+    .sort((a, b) => b.count - a.count || severityRank(a.severity) - severityRank(b.severity))
+    .slice(0, 8);
+
+  const recurringEl = document.getElementById("progress-recurring");
+  recurringEl.innerHTML = recurring.length
+    ? recurring
+        .map((entry) => {
+          const badge = severityToBadge(entry.severity);
+          return `
+            <div class="finding-card ${badge}">
+              <div class="finding-title">
+                <span class="severity-badge ${badge}">${escapeHtml(entry.severity || "low")}</span>
+                ${escapeHtml(entry.title || "")}
+                <span class="severity-badge warning">×${entry.count}</span>
+              </div>
+              <div class="finding-desc">${escapeHtml(entry.description || "")}</div>
+              <div class="finding-rec"><strong>Recommendation:</strong> ${escapeHtml(entry.recommendation || "")}</div>
+            </div>
+          `;
+        })
+        .join("")
+    : `<p class="empty-state">No repeated findings yet — nothing showing up more than once across their reviews.</p>`;
+
+  // Suggested upskilling: categories averaging below 70.
+  const catSums = {};
+  const catCounts = {};
+  reviews.forEach((r) => {
+    (r.categories || []).forEach((cat) => {
+      catSums[cat.name] = (catSums[cat.name] || 0) + cat.score;
+      catCounts[cat.name] = (catCounts[cat.name] || 0) + 1;
+    });
+  });
+
+  const weakCategories = Object.keys(catSums)
+    .map((name) => ({ name, avg: Math.round(catSums[name] / catCounts[name]) }))
+    .filter((c) => c.avg < 70)
+    .sort((a, b) => a.avg - b.avg);
+
+  const suggestionsEl = document.getElementById("progress-suggestions");
+  suggestionsEl.innerHTML = weakCategories.length
+    ? weakCategories
+        .map(
+          (c) => `
+            <div class="finding-card warning">
+              <div class="finding-title">
+                <span class="severity-badge warning">focus area</span>
+                ${escapeHtml(c.name)} — avg ${c.avg}
+              </div>
+              <div class="finding-desc">${escapeHtml(trainingSuggestionFor(c.name))}</div>
+            </div>
+          `
+        )
+        .join("")
+    : `<p class="empty-state">No category is consistently scoring low — no specific training gaps flagged yet.</p>`;
+
+  // Review history for this developer, reusing the same clickable row pattern as History tab.
+  const historyEl = document.getElementById("progress-history");
+  historyEl.innerHTML = "";
+  reviews.forEach((record) => {
+    const row = document.createElement("div");
+    row.className = "history-row";
+    row.tabIndex = 0;
+    const status = scoreStatus(record.overallScore);
+    const meta = [new Date(record.timestamp).toLocaleString()];
+    if (record.reviewerName) meta.push(`Reviewer: ${record.reviewerName}`);
+
+    row.innerHTML = `
+      ${renderScoreRingHtml(record.overallScore, "sm")}
+      <div class="history-main">
+        <div class="history-file">${escapeHtml(record.fileName)}</div>
+        <div class="history-meta">${meta.map(escapeHtml).join(" · ")}</div>
+      </div>
+      <span class="severity-badge ${status}">${status}</span>
+    `;
+
+    row.addEventListener("click", () => openModal(record.fileName, renderReviewBodyHtml(record), []));
+    row.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        openModal(record.fileName, renderReviewBodyHtml(record), []);
+      }
+    });
+
+    historyEl.appendChild(row);
+  });
+}
+
+function renderProgressTab() {
+  populateProgressDeveloperSelect();
+  if (progressDeveloperSelect.value) {
+    renderProgressForDeveloper(progressDeveloperSelect.value);
+  } else {
+    progressEmptyEl.hidden = false;
+    progressContentEl.hidden = true;
+  }
+}
+
+progressDeveloperSelect.addEventListener("change", () => {
+  if (progressDeveloperSelect.value) {
+    renderProgressForDeveloper(progressDeveloperSelect.value);
+  } else {
+    progressEmptyEl.hidden = false;
+    progressContentEl.hidden = true;
+  }
+});
 
 /* ---------- Clients & People tab ---------- */
 
@@ -588,8 +795,9 @@ personInput.addEventListener("keydown", (e) => e.key === "Enter" && addPerson())
 function populateSelectors() {
   clientSelect.innerHTML = `<option value="">— None —</option>` +
     state.clients.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("");
-  reviewerSelect.innerHTML = `<option value="">— None —</option>` +
-    state.people.map((p) => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");
+  const peopleOptions = state.people.map((p) => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");
+  reviewerSelect.innerHTML = `<option value="">— None —</option>` + peopleOptions;
+  developerSelect.innerHTML = `<option value="">— None —</option>` + peopleOptions;
 }
 
 /* ---------- Rules tab ---------- */
