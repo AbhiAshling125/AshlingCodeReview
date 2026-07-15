@@ -4,40 +4,83 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>UiPath Code Reviewer Enterprise</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@500&family=Inter:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <style>
+  /*
+    Ashling Partners Website Style Guide V.01 applied to this app.
+
+    The brand palette (Emerald/Lime/Clover/Admiral/Dark Green/Mint/Light Grey/
+    White) is entirely green + dark navy with no documented error/warning
+    hue. Two functional exceptions were needed for severity badges to stay
+    scannable:
+      - Critical/Error borrows a standard red (#D6455A) — the guide's own
+        form spec includes an "Error" field state, implying some error color
+        must exist even though it isn't swatched.
+      - Warning uses #264600, the darkest step of the guide's own Lime tonal
+        ramp (page 3, "Tonal Palette") — raw Lime (#A9F452) fails WCAG AA as
+        small foreground text on light backgrounds (~1.9:1), so a tonal
+        variant was needed for legibility, not a color outside the palette.
+    Everything else below (including the "pass/info" green) uses only
+    documented brand hex values, several pulled from the tonal ramp instead
+    of the 8 "core" swatches specifically to keep 4.5:1+ contrast on small
+    UI text where the core swatch alone would fail.
+  */
   :root {
     color-scheme: light;
-    --bg: #f4f5f7;
-    --panel: #ffffff;
-    --panel-alt: #f8f9fb;
-    --text: #1f2430;
-    --muted: #6b7280;
-    --border: #e3e6ea;
 
-    --accent: #3454d1;
-    --accent-hover: #2c46b8;
-    --accent-soft: rgba(52, 84, 209, 0.08);
-    --accent-ring: rgba(52, 84, 209, 0.25);
+    /* Core brand palette (Section 01, Color) */
+    --admiral: #192931;
+    --dark-green: #071c17;
+    --emerald: #60d086;
+    --clover: #08994e;
+    --lime: #a9f452;
+    --mint: #e5ffff;
+    --light-grey: #f8f8f8;
+    --white: #ffffff;
 
-    --teal: #0e9f8e;
-    --teal-hover: #0c8a7b;
-    --teal-soft: rgba(14, 159, 142, 0.1);
+    --bg: var(--mint);
+    --panel: var(--white);
+    --panel-alt: var(--light-grey);
+    --text: var(--admiral);
+    --muted: #4c5e64;
+    --border: #dcece9;
+
+    /* Primary action color = Emerald bg + Admiral text (7.74:1, guide's own
+       documented combo). Hover uses Dark Green bg + white text (17.68:1,
+       the guide's best-contrast pair) rather than mid-tone Clover, which
+       only hits ~3.7:1 for white text and fails AA at button text size. */
+    --accent: var(--emerald);
+    --accent-hover: var(--dark-green);
+    --accent-soft: rgba(96, 208, 134, 0.14);
+    --accent-ring: rgba(96, 208, 134, 0.45);
+
+    /* Safe-contrast green for text/links/active states on light backgrounds:
+       core Clover (#08994E) is only ~3.7:1 on white, so this uses a tonal
+       step darker (#007538, from the Clover tonal ramp) to clear 4.5:1. */
+    --brand-text: #007538;
 
     --critical: #d6455a;
     --critical-soft: rgba(214, 69, 90, 0.1);
-    --warning: #d98a1f;
-    --warning-soft: rgba(217, 138, 31, 0.12);
-    --info: #3454d1;
-    --info-soft: rgba(52, 84, 209, 0.08);
-    --pass: #0e9f8e;
-    --pass-soft: rgba(14, 159, 142, 0.1);
+    --warning: #264600;
+    --warning-soft: #eafcd4;
+    --info: var(--brand-text);
+    --info-soft: rgba(0, 117, 56, 0.08);
+    --pass: var(--brand-text);
+    --pass-soft: rgba(0, 117, 56, 0.08);
 
     --radius-sm: 6px;
     --radius-md: 10px;
     --radius-lg: 14px;
+    /* Signature asymmetric corner treatment from Section 05 (Image
+       Treatment): one sharp corner, three heavily rounded. Reserved for
+       primary containers only, scaled down from the guide's 100px (meant
+       for full-bleed imagery) to suit compact app panels. */
+    --radius-brand: 4px 26px 26px 26px;
 
-    --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.07);
-    --shadow-modal: 0 12px 40px rgba(16, 24, 40, 0.22);
+    --shadow-card: 0 1px 2px rgba(7, 28, 23, 0.05), 0 1px 3px rgba(7, 28, 23, 0.08);
+    --shadow-modal: 0 12px 40px rgba(7, 28, 23, 0.28);
 
     --sp-1: 4px;
     --sp-2: 8px;
@@ -51,14 +94,14 @@
 
   body {
     margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     background: var(--bg);
     color: var(--text);
     font-size: 14px;
     -webkit-font-smoothing: antialiased;
   }
 
-  a { color: var(--accent); }
+  a { color: var(--brand-text); }
 
   /* ---------- Top nav + tabs ---------- */
 
@@ -67,34 +110,43 @@
     justify-content: space-between;
     align-items: center;
     padding: 14px var(--sp-6);
-    background: var(--panel);
-    border-bottom: 1px solid var(--border);
+    background: var(--admiral);
+    background-image:
+      radial-gradient(ellipse 500px 160px at 82% 0%, rgba(96, 208, 134, 0.16), transparent 70%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='120' viewBox='0 0 400 120'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='0.07'%3E%3Cpath d='M0 100 Q100 20 200 80 T400 40'/%3E%3Cpath d='M0 108 Q100 32 200 88 T400 50'/%3E%3Cpath d='M0 116 Q100 44 200 96 T400 60'/%3E%3Cpath d='M0 90 Q100 10 200 70 T400 30'/%3E%3C/g%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right center;
+    background-size: auto 100%;
+    border-bottom: 1px solid var(--dark-green);
   }
 
-  .brand-name { font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em; }
+  .brand-name { font-weight: 600; font-size: 1.05rem; letter-spacing: -0.01em; font-family: "Instrument Sans", sans-serif; color: var(--white); }
 
   .brand-tag {
     margin-left: var(--sp-2);
-    font-size: 0.72rem;
-    color: var(--accent);
-    background: var(--accent-soft);
+    font-size: 0.68rem;
+    color: var(--admiral);
+    background: var(--lime);
     border-radius: 999px;
     padding: 2px 9px;
     font-weight: 600;
     vertical-align: middle;
+    font-family: "DM Mono", monospace;
+    letter-spacing: 0.05em;
   }
 
   .status-badge {
     display: flex;
     align-items: center;
     gap: var(--sp-2);
-    font-size: 0.82rem;
-    color: var(--muted);
+    font-size: 0.78rem;
+    color: #b7c4c8;
+    font-family: "DM Mono", monospace;
   }
 
-  .status-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
-  .status-dot.online { background: var(--pass); box-shadow: 0 0 0 3px var(--pass-soft); }
-  .status-dot.offline { background: var(--critical); box-shadow: 0 0 0 3px var(--critical-soft); }
+  .status-dot { width: 9px; height: 9px; border-radius: 50%; background: #b7c4c8; flex-shrink: 0; }
+  .status-dot.online { background: var(--emerald); box-shadow: 0 0 0 3px rgba(96, 208, 134, 0.3); }
+  .status-dot.offline { background: #ef7c8a; box-shadow: 0 0 0 3px rgba(239, 124, 138, 0.3); }
 
   .tabs {
     display: flex;
@@ -121,7 +173,7 @@
 
   .tab-btn:hover { color: var(--text); }
 
-  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-btn.active { color: var(--brand-text); border-bottom-color: var(--emerald); }
 
   .tab-btn:focus-visible {
     outline: none;
@@ -143,7 +195,7 @@
   .panel {
     background: var(--panel);
     border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-brand);
     padding: var(--sp-5);
     box-shadow: var(--shadow-card);
   }
@@ -158,13 +210,15 @@
 
   .panel-header h1, .panel-header h2 { margin: 0; }
 
-  h1 { font-size: 1.15rem; font-weight: 700; letter-spacing: -0.01em; }
-  h2 { font-size: 1.05rem; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 var(--sp-1); }
+  h1, h2 { font-family: "Instrument Sans", sans-serif; letter-spacing: -0.01em; color: var(--admiral); }
+  h1 { font-size: 1.25rem; font-weight: 600; }
+  h2 { font-size: 1.1rem; font-weight: 600; margin: 0 0 var(--sp-1); }
   h3 {
-    font-size: 0.75rem;
-    font-weight: 700;
+    font-family: "DM Mono", monospace;
+    font-size: 0.72rem;
+    font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.07em;
     color: var(--muted);
     margin: var(--sp-5) 0 var(--sp-3);
   }
@@ -197,7 +251,7 @@
 
   input[type="text"]:focus, select:focus, textarea:focus {
     outline: none;
-    border-color: var(--accent);
+    border-color: var(--clover);
     box-shadow: 0 0 0 3px var(--accent-ring);
   }
 
@@ -245,12 +299,18 @@
   .btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
   .btn:disabled { opacity: 0.55; cursor: not-allowed; }
 
-  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .btn-primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+  /* Primary: Emerald bg + Admiral text (7.74:1, guide's documented combo).
+     Hover: Dark Green bg + white text (17.68:1, the guide's best pair). */
+  .btn-primary { background: var(--emerald); border-color: var(--emerald); color: var(--admiral); }
+  .btn-primary:hover:not(:disabled) { background: var(--dark-green); border-color: var(--dark-green); color: #fff; }
 
-  .btn-secondary { background: var(--panel); border-color: var(--border); color: var(--text); }
-  .btn-secondary:hover:not(:disabled) { background: var(--panel-alt); border-color: var(--accent); color: var(--accent); }
+  /* Secondary: outline Emerald border per the guide's Light Mode spec. */
+  .btn-secondary { background: var(--panel); border-color: var(--emerald); color: var(--admiral); }
+  .btn-secondary:hover:not(:disabled) { background: var(--accent-soft); border-color: var(--clover); color: var(--admiral); }
 
+  /* Tertiary here means destructive (Remove/Delete/Clear) rather than the
+     guide's text-link tertiary — red is a functional exception, see the
+     :root comment on --critical. */
   .btn-tertiary { background: transparent; border-color: transparent; color: var(--critical); padding: 7px 10px; }
   .btn-tertiary:hover:not(:disabled) { background: var(--critical-soft); }
 
@@ -280,14 +340,15 @@
     width: 68px;
     height: 68px;
     border-radius: 50%;
-    border: 3px solid var(--accent);
+    border: 3px solid var(--emerald);
     background: var(--accent-soft);
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 1.15rem;
     font-weight: 700;
-    color: var(--accent);
+    font-family: "DM Mono", monospace;
+    color: var(--brand-text);
     flex-shrink: 0;
   }
 
@@ -297,7 +358,9 @@
   .score-ring.warning { border-color: var(--warning); background: var(--warning-soft); color: var(--warning); }
   .score-ring.critical { border-color: var(--critical); background: var(--critical-soft); color: var(--critical); }
 
-  #summary-text { color: var(--muted); line-height: 1.55; margin: 0; }
+  .summary-text { color: var(--muted); line-height: 1.55; margin: 0; }
+
+  .review-meta { color: var(--muted); font-size: 0.82rem; margin: 0 0 var(--sp-3); }
 
   /* ---------- Category cards (shared) ---------- */
 
@@ -315,7 +378,7 @@
   }
 
   .category-card .cat-name { font-weight: 600; font-size: 0.85rem; display: flex; justify-content: space-between; gap: var(--sp-2); }
-  .category-card .cat-score { font-weight: 700; }
+  .category-card .cat-score { font-weight: 700; color: var(--brand-text); font-family: "DM Mono", monospace; }
   .category-card .cat-comments { color: var(--muted); font-size: 0.8rem; margin-top: var(--sp-1); line-height: 1.45; }
 
   /* ---------- Findings + severity badges (shared) ---------- */
@@ -345,12 +408,13 @@
   }
 
   .severity-badge {
-    font-size: 0.68rem;
+    font-family: "DM Mono", monospace;
+    font-size: 0.66rem;
     text-transform: uppercase;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.05em;
     padding: 2px 9px;
     border-radius: 999px;
-    font-weight: 700;
+    font-weight: 500;
     flex-shrink: 0;
   }
 
@@ -437,7 +501,7 @@
 
   .note-box {
     background: var(--info-soft);
-    border: 1px solid var(--accent);
+    border: 1px solid var(--clover);
     color: var(--text);
     border-radius: var(--radius-sm);
     padding: var(--sp-3) var(--sp-4);
@@ -463,7 +527,7 @@
 
   .modal-card {
     background: var(--panel);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-brand);
     box-shadow: var(--shadow-modal);
     width: 100%;
     max-width: 720px;
@@ -553,7 +617,7 @@
         </div>
         <div class="score-summary" style="margin-top: var(--sp-3);">
           <div class="score-ring" id="overall-score">–</div>
-          <p id="summary-text"></p>
+          <p id="summary-text" class="summary-text"></p>
         </div>
 
         <h3>Category Scores</h3>

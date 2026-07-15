@@ -101,10 +101,10 @@ function renderReviewBodyHtml(record) {
   if (record.timestamp) meta.push(new Date(record.timestamp).toLocaleString());
 
   return `
-    <p style="color: var(--muted); font-size: 0.82rem; margin: 0 0 var(--sp-3);">${meta.join(" · ")}</p>
+    <p class="review-meta">${meta.join(" · ")}</p>
     <div class="score-summary">
       ${renderScoreRingHtml(record.overallScore)}
-      <p id="summary-text">${escapeHtml(record.summary || "")}</p>
+      <p class="summary-text">${escapeHtml(record.summary || "")}</p>
     </div>
     <h3>Category Scores</h3>
     <div class="categories">${categories.map(renderCategoryCardHtml).join("")}</div>
@@ -291,32 +291,40 @@ function buildReportHtml(record) {
 <head>
 <meta charset="UTF-8" />
 <title>Review report — ${escapeHtml(record.fileName)}</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@500&family=Inter:wght@400;600;700&family=Instrument+Sans:wght@600&display=swap" rel="stylesheet" />
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f4f5f7; color: #1f2430; padding: 32px; }
-  .report { max-width: 720px; margin: 0 auto; background: #fff; border: 1px solid #e3e6ea; border-radius: 14px; padding: 24px; box-shadow: 0 1px 3px rgba(16,24,40,0.07); }
-  h1 { font-size: 1.15rem; }
-  h3 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: #6b7280; margin: 24px 0 12px; }
+  /* Ashling Partners brand palette — see index.html for the full token
+     rationale (functional red/olive exceptions for Critical/Warning). */
+  body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #e5ffff; color: #192931; padding: 32px; }
+  .report { max-width: 720px; margin: 0 auto; background: #fff; border: 1px solid #dcece9; border-radius: 4px 26px 26px 26px; padding: 24px; box-shadow: 0 1px 3px rgba(7,28,23,0.08); }
+  h1 { font-family: "Instrument Sans", sans-serif; font-size: 1.2rem; font-weight: 600; color: #192931; }
+  h3 { font-family: "DM Mono", monospace; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.07em; color: #4c5e64; margin: 24px 0 12px; font-weight: 500; }
+  .review-meta { color: #4c5e64; font-size: 0.82rem; margin: 0 0 12px; }
+  .summary-text { color: #4c5e64; line-height: 1.55; margin: 0; }
   .score-summary { display: flex; align-items: center; gap: 24px; }
-  .score-ring { width: 68px; height: 68px; border-radius: 50%; border: 3px solid #3454d1; background: rgba(52,84,209,0.08); display: flex; align-items: center; justify-content: center; font-size: 1.15rem; font-weight: 700; color: #3454d1; flex-shrink: 0; }
-  .score-ring.pass { border-color: #0e9f8e; background: rgba(14,159,142,0.1); color: #0e9f8e; }
-  .score-ring.warning { border-color: #d98a1f; background: rgba(217,138,31,0.12); color: #d98a1f; }
+  .score-ring { width: 68px; height: 68px; border-radius: 50%; border: 3px solid #60d086; background: rgba(96,208,134,0.14); display: flex; align-items: center; justify-content: center; font-family: "DM Mono", monospace; font-size: 1.15rem; font-weight: 700; color: #007538; flex-shrink: 0; }
+  .score-ring.pass { border-color: #007538; background: rgba(0,117,56,0.08); color: #007538; }
+  .score-ring.warning { border-color: #264600; background: #eafcd4; color: #264600; }
   .score-ring.critical { border-color: #d6455a; background: rgba(214,69,90,0.1); color: #d6455a; }
   .categories { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
-  .category-card { border: 1px solid #e3e6ea; background: #f8f9fb; border-radius: 10px; padding: 12px 16px; }
+  .category-card { border: 1px solid #dcece9; background: #f8f8f8; border-radius: 10px; padding: 12px 16px; }
   .cat-name { font-weight: 600; font-size: 0.85rem; display: flex; justify-content: space-between; gap: 8px; }
-  .cat-comments { color: #6b7280; font-size: 0.8rem; margin-top: 4px; }
+  .cat-score { color: #007538; font-family: "DM Mono", monospace; }
+  .cat-comments { color: #4c5e64; font-size: 0.8rem; margin-top: 4px; }
   .findings { display: flex; flex-direction: column; gap: 12px; }
-  .finding-card { border: 1px solid #e3e6ea; border-left: 4px solid #6b7280; background: #f8f9fb; border-radius: 10px; padding: 12px 16px; }
+  .finding-card { border: 1px solid #dcece9; border-left: 4px solid #4c5e64; background: #f8f8f8; border-radius: 10px; padding: 12px 16px; }
   .finding-card.critical { border-left-color: #d6455a; }
-  .finding-card.warning { border-left-color: #d98a1f; }
-  .finding-card.info { border-left-color: #3454d1; }
+  .finding-card.warning { border-left-color: #264600; }
+  .finding-card.info { border-left-color: #007538; }
+  .finding-card.pass { border-left-color: #007538; }
   .finding-title { font-weight: 600; font-size: 0.9rem; display: flex; align-items: center; gap: 8px; }
-  .severity-badge { font-size: 0.68rem; text-transform: uppercase; padding: 2px 9px; border-radius: 999px; font-weight: 700; }
+  .severity-badge { font-family: "DM Mono", monospace; font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 9px; border-radius: 999px; font-weight: 500; }
   .severity-badge.critical { background: rgba(214,69,90,0.1); color: #d6455a; }
-  .severity-badge.warning { background: rgba(217,138,31,0.12); color: #d98a1f; }
-  .severity-badge.info { background: rgba(52,84,209,0.08); color: #3454d1; }
-  .finding-desc, .finding-rec { font-size: 0.84rem; color: #6b7280; margin-top: 4px; }
-  .finding-rec strong { color: #1f2430; }
+  .severity-badge.warning { background: #eafcd4; color: #264600; }
+  .severity-badge.info { background: rgba(0,117,56,0.08); color: #007538; }
+  .severity-badge.pass { background: rgba(0,117,56,0.08); color: #007538; }
+  .finding-desc, .finding-rec { font-size: 0.84rem; color: #4c5e64; margin-top: 4px; }
+  .finding-rec strong { color: #192931; }
 </style>
 </head>
 <body>
@@ -459,7 +467,7 @@ function renderTrendChart(reviews, svgId, height) {
   const ordered = [...reviews].reverse().slice(-20);
 
   if (ordered.length < 2) {
-    svg.innerHTML = `<text x="20" y="${height / 2}" fill="#6b7280" font-size="13">Run at least two reviews to see a trend line.</text>`;
+    svg.innerHTML = `<text x="20" y="${height / 2}" fill="#4c5e64" font-size="13">Run at least two reviews to see a trend line.</text>`;
     return;
   }
 
@@ -476,12 +484,12 @@ function renderTrendChart(reviews, svgId, height) {
   const circles = ordered
     .map((r, i) => {
       const [x, y] = points[i].split(",");
-      return `<circle cx="${x}" cy="${y}" r="3.5" fill="#3454d1" />`;
+      return `<circle cx="${x}" cy="${y}" r="3.5" fill="#007538" />`;
     })
     .join("");
 
   svg.innerHTML = `
-    <polyline points="${points.join(" ")}" fill="none" stroke="#3454d1" stroke-width="2" />
+    <polyline points="${points.join(" ")}" fill="none" stroke="#007538" stroke-width="2" />
     ${circles}
   `;
 }
